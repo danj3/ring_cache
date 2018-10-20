@@ -9,18 +9,14 @@ defmodule RingCache do
   where the interior list is [ key, value ], a nil value will result in
   a cached negative value that will have the same lifespan as a value.
 
-  external calls:
-
-  merchant_profile
-  delete_merchant
-
   """
   
   @tabcount 3
   @tabexpire_ms 5 * 60 * 1000
-  @default_opts [ tabcount: @tabcount,
-		  tabexpire_ms: @tabexpire_ms,
-		]
+  @default_opts [
+    tabcount: @tabcount,
+		tabexpire_ms: @tabexpire_ms,
+	]
 
   @type cell_key_t :: ( String.t | tuple )
   @type cell_value_t :: ( :negative_cache | map() | String.t | tuple )
@@ -68,13 +64,13 @@ defmodule RingCache do
     get_and_resolve_keys( [ cell_key ], rc_name )
     |> Map.get( cell_key )
     |> case do
-	 :negative_cache -> { cell_key, nil }
-	 val -> { cell_key, val }
+	       :negative_cache -> { cell_key, nil }
+	       val -> { cell_key, val }
        end
   end
 
   # Private or internal below
-    
+
   defp resolve_keys( cell_key, rc_name ) do
     case get_resolver( rc_name ) do
       { m, f, a } -> apply( m, f, [ cell_key | a ] )
@@ -119,14 +115,14 @@ defmodule RingCache do
     |> Enum.reduce(
       [ unresolved: [], resolved: resolved ], fn
       mid, [ unresolved: u, resolved: r ] ->
-	case :ets.lookup( tabname, mid ) do
-	  [] -> [ unresolved: [ mid | u ], resolved: r ]
-	  [{ mid, val }] -> [ unresolved: u, resolved: [ { mid, val } | r ] ]
-	end
+	      case :ets.lookup( tabname, mid ) do
+	        [] -> [ unresolved: [ mid | u ], resolved: r ]
+	        [{ mid, val }] -> [ unresolved: u, resolved: [ { mid, val } | r ] ]
+	      end
     end)
     |> case do
-	 [ unresolved: [], resolved: r ] -> get_keys( [], :"$end_of_table", r, rc_name )
-	 [ unresolved: u, resolved: r ] -> get_keys( u, tab_next( tabid, rc_name ), r, rc_name )
+	       [ unresolved: [], resolved: r ] -> get_keys( [], :"$end_of_table", r, rc_name )
+	       [ unresolved: u, resolved: r ] -> get_keys( u, tab_next( tabid, rc_name ), r, rc_name )
        end
   end
 
@@ -198,16 +194,16 @@ defmodule RingCache do
       options = [ :set, :named_table ]
       
       for n <- (1..( opts[:tabcount] )) do
-	name = String.to_atom( to_string(rc_name) <> to_string(n) )
-	:ets.new( name, options )
-	:ets.insert( order_key, { n, name } )
-	name
+	      name = String.to_atom( to_string(rc_name) <> to_string(n) )
+	      :ets.new( name, options )
+	      :ets.insert( order_key, { n, name } )
+	      name
       end
 
       opts =
-	opts
-	|> Keyword.put( :expire_timer,
-	:timer.apply_interval( opts[:tabexpire_ms], RingCache, :expire_table, [ rc_name ] ) )
+	      opts
+	    |> Keyword.put( :expire_timer,
+	      :timer.apply_interval( opts[:tabexpire_ms], RingCache, :expire_table, [ rc_name ] ) )
       
       {:ok, { rc_name, resolver, order_key, opts } }
     end
@@ -292,16 +288,16 @@ defmodule RingCache do
   def instrument do
     quote do
       def cache_start( resolver, opts \\ [] ) do
-	RingCache.start( __MODULE__, resolver, opts )
+	      RingCache.start( __MODULE__, resolver, opts )
       end
       def cache_start_link( resolver, opts \\ [] ) do
-	RingCache.start_link( __MODULE__, resolver, opts )
+	      RingCache.start_link( __MODULE__, resolver, opts )
       end
       def cache_get( key ) do
-	RingCache.cell_get( key, __MODULE__ )
+	      RingCache.cell_get( key, __MODULE__ )
       end
       def cache_get_tuples( key ) do
-	RingCache.cell_get_tuples( key, __MODULE__ )
+	      RingCache.cell_get_tuples( key, __MODULE__ )
       end
       def cache_inspect_tables, do: RingCache.inspect_tables( __MODULE__ )
       def cache_inspect_order, do: RingCache.inspect_order( __MODULE__ )
