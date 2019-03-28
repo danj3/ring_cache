@@ -9,6 +9,36 @@ defmodule RingCache do
   where the interior list is [ key, value ], a nil value will result in
   a cached negative value that will have the same lifespan as a value.
 
+
+  A simultaneous call for a single cell will likely result in the
+  resolver being called more than once because of the delay introduced by
+  the GenServer updating the :ets table.
+
+  This module can be `use`d in another module to add cache_ functions and
+  all RingCache functionality.
+
+  A simple example that uses your filesystem as a source:
+
+
+  iex> { :ok, pid } = RingCache.start(:test,
+  ...>  fn questions -> Enum.map( questions, fn q1 -> [ q1,File.ls(q1) ] end ) end )
+  iex> is_pid( pid )
+  true
+  iex> RingCache.cell_get( "config", :test )
+  { :ok, [ "config.exs" ] }
+  iex> RingCache.cell_get( "mix.exs", :test )
+  { :error, :enotdir }
+  iex> Process.sleep(500) # This gives the GenServer time to update the table
+  iex> RingCache.inspect_order( :test )
+  [{1, :test1}, {2, :test2}, {3, :test3}]
+  iex> RingCache.inspect_tables( :test ) |> IO.inspect
+  [
+  test1: [],
+  test2: [],
+  test3: [{"mix.exs", {:error, :enotdir}}, {"config", {:ok, ["config.exs"]}}]
+  ]
+  iex> GenServer.stop( pid )
+  :ok
   """
   
   @tabcount 3
