@@ -45,8 +45,9 @@ defmodule RingCache do
   @tabexpire_ms 5 * 60 * 1000
   @default_opts [
     tabcount: @tabcount,
-		tabexpire_ms: @tabexpire_ms,
-	]
+    tabexpire_ms: @tabexpire_ms,
+    log_expire: false,
+  ]
 
   @type cell_key_t :: ( String.t | tuple )
   @type cell_value_t :: ( :negative_cache | map() | String.t | tuple )
@@ -210,6 +211,16 @@ defmodule RingCache do
   def set_resolver( resolver, rc_name ) do
     GenServer.cast( rc_name, { :set_resolver, resolver } )
   end
+
+  @doc """
+  Use this to ensure any pending updates are applied. Since ets read
+  is done directly and update through a GenServer read after write can
+  produce different results or multiple calls to the resolver.
+  """
+  def after_update( rc_name ) do
+    GenServer.call( rc_name, :after_update )
+  end
+
   # server implementation
 
   defmodule Impl do
@@ -259,6 +270,10 @@ defmodule RingCache do
       { :reply, resolver, { rc_name, resolver, order_key, opts } }
     end
 
+    def handle_call( :after_update, _from, { rc_name, resolver, order_key, opts } ) do
+      { :reply, :ok, { rc_name, resolver, order_key, opts } }
+    end
+
     def handle_cast( { :set_resolver, new_resolver }, { rc_name, _resolver, order_key, opts } ) do
       { :noreply, { rc_name, new_resolver, order_key, opts } }
     end
@@ -288,7 +303,8 @@ defmodule RingCache do
     def handle_cast( :expire_table, { rc_name, resolver, order_key, opts } ) do
       target_key = :ets.first( order_key )
       target_tab = get_tabname( target_key, order_key )
-      Logger.debug("RingCache(#{rc_name}):expire_table expiring: #{target_tab} size:#{:ets.info(target_tab)[:size]}  first:#{:ets.first( order_key ) } last:#{:ets.last( order_key ) }")
+      if Keyword.get( opts, :log_expire, false ),
+	  do: Logger.debug("RingCache(#{rc_name}):expire_table expiring: #{target_tab} size:#{:ets.info(target_tab)[:size]}  first:#{:ets.first( order_key ) } last:#{:ets.last( order_key ) }")
 
       :ets.delete( order_key, target_key )
       :ets.delete_all_objects( target_tab )
